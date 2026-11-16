@@ -1,0 +1,15 @@
+---
+title: "Delivery_PDF"
+format: html
+---
+
+Our goal is to compare two methods mentioned in class, this way can select which one of those two fits better our dataset.
+In this case, these two methods are the following:
+1. bliblibliblablanbla
+  - isahusdauhsaiohd
+2. edwhidsifbhcdiksvjbh
+  - haoishbiousc
+  
+We find interesting to compare these two methods......
+
+The dataset selected for the completion of this assignment is .... which contains information about ....
