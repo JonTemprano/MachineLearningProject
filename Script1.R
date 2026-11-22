@@ -1,1 +1,3 @@
-print("Hola soy Jon")
+library(tidyverse)
+
+data <- read.csv("data.csv")
