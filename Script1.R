@@ -4,7 +4,6 @@ data <- read.csv("data.csv")
 
 filtered_data = data %>%
   filter(league %in% c("FRA-Ligue 1", "ESP-La Liga", "ENG-Premier League")) %>% 
-  
   select(-contains("fifa")) %>%
   select(player, team, league, pos, age,
   playing_time_min, playing_time_mp,
@@ -23,8 +22,7 @@ filtered_data = data %>%
   ss_possessionWonAttThird, ss_possessionLost, ss_touches,
   ss_wasFouled, fouls_p90
   ) %>%
-  
-  filter(playing_time_min>=900 & pos != "GK")
+  filter(pos != "GK")
 
 #filter just 3 out of top 5 leagues, so that we can reduce amount of instances.
 #these give us enough variation in players and styles, and we have a dataset with a manageable size.
@@ -55,8 +53,6 @@ filtered_data = data %>%
 #   - Analyse possible patterns related to positions.
 
 
-#pasar estadísticas acumuladas a _p90.
-
 cleaned_data <- filtered_data %>%
   rename_with(~ sub("^[a-z]{2}_", "", .x))
 
@@ -65,4 +61,97 @@ variables <- colnames(cleaned_data)
 variables
 
 #Eliminate the prefixes related with the source of the concrete statistic obtained
+
+cleaned_data <- cleaned_data %>%
+  mutate(
+    gls_p90 = gls / playing_time_min * 90,
+    ast_p90 = ast / playing_time_min * 90,
+    bigChancesCreated_p90 = bigChancesCreated / playing_time_min * 90,
+    bigChancesMissed_p90 = bigChancesMissed / playing_time_min * 90,
+    accurateOppositionHalfPasses_p90 = accurateOppositionHalfPasses / playing_time_min * 90,
+    accurateFinalThirdPasses_p90 = accurateFinalThirdPasses / playing_time_min * 90,
+    successfulDribbles_p90 = successfulDribbles / playing_time_min * 90,
+    clearances_p90 = clearances / playing_time_min * 90,
+    blockedShots_p90 = blockedShots / playing_time_min * 90,
+    ballRecovery_p90 = ballRecovery / playing_time_min * 90,
+    dribbledPast_p90 = dribbledPast / playing_time_min * 90,
+    possessionWonAttThird_p90 = possessionWonAttThird / playing_time_min * 90,
+    possessionLost_p90 = possessionLost / playing_time_min * 90,
+    touches_p90 = touches / playing_time_min * 90,
+    wasFouled_p90 = wasFouled / playing_time_min * 90
+  )
+
+cleaned_data <- cleaned_data %>%
+  select(-gls, -ast, -bigChancesCreated, -bigChancesMissed,
+         -accurateOppositionHalfPasses, -accurateFinalThirdPasses,
+         -successfulDribbles, -clearances, -blockedShots,
+         -ballRecovery, -dribbledPast, -possessionWonAttThird,
+         -possessionLost, -touches, -wasFouled)
+
+# Here we convert cumulative statistics (which takes the aggregate, and not proportional values)
+# into per 90 minute values, so that the performances can be compared without having to take into account 
+# the minutes played. Hence, after creating the per90 variables, we take away the original ones (avoid redundancy0)
+
+performance_vars <- c(
+  "sot_pct", "g_sh", "xg_p90", "p90", "chain_p90",
+  "shots_p90", "key_passes_p90", "g_minus_xg", "xg_buildup",
+  "accuratePassesPercentage", "accurateLongBallsPercentage",
+  "accurateCrossesPercentage", "successfulDribblesPercentage",
+  "groundDuelsWonPercentage", "aerialDuelsWonPercentage",
+  "totalDuelsWonPercentage", "interceptions_p90",
+  "tackles_won_p90", "tacklesWonPercentage", "fouls_p90",
+  "gls_p90", "ast_p90", "bigChancesCreated_p90",
+  "bigChancesMissed_p90", "accurateOppositionHalfPasses_p90",
+  "accurateFinalThirdPasses_p90", "successfulDribbles_p90",
+  "clearances_p90", "blockedShots_p90", "ballRecovery_p90",
+  "dribbledPast_p90", "possessionWonAttThird_p90",
+  "possessionLost_p90", "touches_p90", "wasFouled_p90"
+)
+
+cleaned_data <- cleaned_data %>%
+  mutate(original_min = playing_time_min) %>%
+  group_by(player) %>%
+  summarise(
+    team = last(team),
+    league = last(league),
+    pos = last(pos),
+    age = first(age),
+    playing_time_min = sum(original_min),
+    playing_time_mp = sum(playing_time_mp),
+    across(
+      all_of(performance_vars),
+      ~ weighted.mean(.x, w = original_min, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) 
+
+#As the dataset takes a whole season, there is the possibility for a player to change clubs during it. 
+#Originally, the dataset has a row for each player-club instance, which resulted in some players appearing in 
+#two separate rows (for example, Amine Gouiri, who played for Marseille and Rennes.)
+#These players had some of the statistics kept equal for both instances, but some others changed across clubs.
+#Therefore, it is necessary to combine those. The statistics are combined by the minutes played at each club.
+#For example, if a player has played 1000 minutes in club A, and 2000 in club B, the statistics for club B
+#will have double the weight. 
+
+
+cleaned_data = cleaned_data %>% filter(playing_time_min>=900)
+#We wanted to filter players with more than 900 minutes so that we can analyse contrasted performance,
+#not stats biased by short playing time (a player who has scored a goal in the only game they have played, f.ex.)
+#however, we needed to solve the multiple-club dilemma so as not to lose data (had we filtered earlier, 
+#a player with 500 minutes in club A and 500 minutes in club B wouldn't be considered, even if the aggregate
+#minute count exceeds our threshold of 900).
+
+
+
+#Observing NA values
+sum(!complete.cases(cleaned_data))
+nrow(na.omit(cleaned_data))
+
+cleaned_data %>%
+  filter(if_any(everything(), is.na)) %>%
+  select(player, team, pos) %>% print(n=73)
+
+players_most_na <- cleaned_data %>%
+  mutate(NA_count = rowSums(is.na(across(everything())))) %>%
+  arrange(desc(NA_count)) %>% filter(NA_count>0) %>% select(player, team, pos, NA_count)
 
