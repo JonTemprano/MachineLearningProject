@@ -4,15 +4,9 @@ data <- read.csv("data.csv")
 
 filtered_data = data %>%
   filter(league %in% c("FRA-Ligue 1", "ESP-La Liga", "ENG-Premier League")) %>% 
-  select(-contains("fifa")) 
-
-#filter just 3 out of top 5 leagues, so that we can reduce amount of instances.
-#these give us enough variation in players and styles, and we have a dataset with a manageable size.
-#we select just the variables related to the actual identification and performance in real life, and 
-#take away the variables related to the FIFA video game, considering that they do not contribute to our analysis
-
-filtered_data2 = filtered_data %>% select(
-  player, team, league, pos, age,
+  
+  select(-contains("fifa")) %>%
+  select(player, team, league, pos, age,
   playing_time_min, playing_time_mp,
   fb_gls, fb_ast, fb_sot_pct, fb_g_sh,
   np_xg_p90, xa_p90, xg_chain_p90, shots_p90,
@@ -28,7 +22,15 @@ filtered_data2 = filtered_data %>% select(
   ss_clearances, ss_blockedShots, ss_ballRecovery, ss_dribbledPast,
   ss_possessionWonAttThird, ss_possessionLost, ss_touches,
   ss_wasFouled, fouls_p90
-) %>% filter(playing_time_min>=900 & pos != "GK")
+  ) %>%
+  
+  filter(playing_time_min>=900 & pos != "GK")
+
+#filter just 3 out of top 5 leagues, so that we can reduce amount of instances.
+#these give us enough variation in players and styles, and we have a dataset with a manageable size.
+#we select just the variables related to the actual identification and performance in real life, and 
+#take away the variables related to the FIFA video game, considering that they do not contribute to our analysis
+
 
 #For this specific analysis, we will only take into account outfield players (Goalkeepers not included), therefore,
 #the variables selected will be related to outfield aspects, excluding variables such as saves or goals prevented.
@@ -54,3 +56,13 @@ filtered_data2 = filtered_data %>% select(
 
 
 #pasar estadísticas acumuladas a _p90.
+
+cleaned_data <- filtered_data %>%
+  rename_with(~ sub("^[a-z]{2}_", "", .x))
+
+variables <- colnames(cleaned_data)
+
+variables
+
+#Eliminate the prefixes related with the source of the concrete statistic obtained
+
