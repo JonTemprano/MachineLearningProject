@@ -1,6 +1,6 @@
 library(tidyverse)
 
-data <- read.csv("data.csv")
+data <- read.csv("data_25_26.csv")
 
 filtered_data = data %>%
   filter(league %in% c("FRA-Ligue 1", "ESP-La Liga", "ENG-Premier League")) %>% 
@@ -112,8 +112,8 @@ cleaned_data <- cleaned_data %>%
   mutate(original_min = playing_time_min) %>%
   group_by(player) %>%
   summarise(
-    team = last(team),
-    league = last(league),
+    team = paste(unique(team), collapse = ", "),
+    league = paste(unique(league), collapse = ", "),
     pos = last(pos),
     age = first(age),
     playing_time_min = sum(original_min),
@@ -127,11 +127,13 @@ cleaned_data <- cleaned_data %>%
 
 #As the dataset takes a whole season, there is the possibility for a player to change clubs during it. 
 #Originally, the dataset has a row for each player-club instance, which resulted in some players appearing in 
-#two separate rows (for example, Amine Gouiri, who played for Marseille and Rennes.)
+#two separate rows (for example, Angel Gomes, who played for Marseille and Wolves during the 25/26 season.)
 #These players had some of the statistics kept equal for both instances, but some others changed across clubs.
 #Therefore, it is necessary to combine those. The statistics are combined by the minutes played at each club.
 #For example, if a player has played 1000 minutes in club A, and 2000 in club B, the statistics for club B
 #will have double the weight. 
+#As for the clubs, both are saved (same with the leagues), in order to keep as much information as possible, 
+#and due to the fact that it is not detrimental to our analysis.
 
 
 cleaned_data = cleaned_data %>% filter(playing_time_min>=900)
