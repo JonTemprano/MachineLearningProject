@@ -56,6 +56,11 @@ filtered_data = data %>%
 cleaned_data <- filtered_data %>%
   rename_with(~ sub("^[a-z]{2}_", "", .x))
 
+colnames(cleaned_data)[colnames(cleaned_data) == "p90"] = "xa_p90"
+colnames(cleaned_data)[colnames(cleaned_data) == "chain_p90"] = "xg_chain_p90"
+#el filtrado quitaba los valores xg y xa, que aportan información crucial a la variable en cuestión.
+#dejar así o cambiar la parte de filtrado para eliminar en específico los prefijos 'us, ss, fb' en vez d tirar d sub.
+
 variables <- colnames(cleaned_data)
 
 variables
@@ -93,7 +98,7 @@ cleaned_data <- cleaned_data %>%
 # the minutes played. Hence, after creating the per90 variables, we take away the original ones (avoid redundancy0)
 
 performance_vars <- c(
-  "sot_pct", "g_sh", "xg_p90", "p90", "chain_p90",
+  "sot_pct", "g_sh", "xg_p90", "xa_p90", "xg_chain_p90",
   "shots_p90", "key_passes_p90", "g_minus_xg", "xg_buildup",
   "accuratePassesPercentage", "accurateLongBallsPercentage",
   "accurateCrossesPercentage", "successfulDribblesPercentage",
@@ -156,4 +161,45 @@ cleaned_data %>%
 players_most_na <- cleaned_data %>%
   mutate(NA_count = rowSums(is.na(across(everything())))) %>%
   arrange(desc(NA_count)) %>% filter(NA_count>0) %>% select(player, team, pos, NA_count)
+
+#We see that we have four groups of players with NA values. Players with 2, 7, 21 and 28 variables. 
+#78 out of 901 players have NA values in the selected variables, for whom the half of them (39/78) 
+#have either 21 or 28 NA's, accounting for at least the half of the total variables. 
+#As an artificial imputation (setting values at 0, using average mean for position...) would alter the 
+#reality for these specific cases, and considering that the sample for these is relatively small
+#(39/901 accounts for 4% of the dataset), we decide to eliminate those ones from the analysis.
+
+cleaned_data <- cleaned_data %>%
+  filter(rowSums(is.na(across(all_of(performance_vars)))) < 21)
+
+
+colSums(is.na(cleaned_data[performance_vars])) %>% .[.>0]
+#With this command, we see which are the variables with NA's. 
+
+cleaned_data <- cleaned_data %>%
+  group_by(pos) %>%
+  mutate(
+    sot_pct = if_else(is.na(sot_pct), mean(sot_pct, na.rm = TRUE), sot_pct),
+    g_sh = if_else(is.na(g_sh), mean(g_sh, na.rm = TRUE), g_sh),
+    xg_p90 = if_else(is.na(xg_p90), mean(xg_p90, na.rm = TRUE), xg_p90),
+    xa_p90 = if_else(is.na(xa_p90), mean(xa_p90, na.rm = TRUE), xa_p90),
+    xg_chain_p90 = if_else(is.na(xg_chain_p90), mean(xg_chain_p90, na.rm = TRUE), xg_chain_p90),
+    shots_p90 = if_else(is.na(shots_p90), mean(shots_p90, na.rm = TRUE), shots_p90),
+    key_passes_p90 = if_else(is.na(key_passes_p90), mean(key_passes_p90, na.rm = TRUE), key_passes_p90),
+    xg_buildup = if_else(is.na(xg_buildup), mean(xg_buildup, na.rm = TRUE), xg_buildup),
+    g_minus_xg = if_else(is.na(g_minus_xg), mean(g_minus_xg, na.rm = TRUE), g_minus_xg)
+  ) %>%
+  ungroup()
+
+#We replaced the NA values with the mean value for the players' position (if a striker's xg_p90 value is 
+#missing, it will be replaced with the average striker's xg_p90 value, instead of taking the mean xg_p90 for
+#the whole dataset). That way, we can keep as many players as possible without introducing variables that 
+#could distort our analysis.
+
+#otra opción aquí es directamente quitar todo aquel jugador que tenga un valor NA. nos dejaría con 823 jugadores
+#o algo así. vamos viendo sobre la marcha, de mientras dejo esta opción. 
+
+sum(!complete.cases(cleaned_data[performance_vars]))
+#We check that we have taken out every single NA value
+
 
